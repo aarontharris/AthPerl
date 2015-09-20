@@ -4,7 +4,8 @@ package ATH;
 
 use strict;
 use Data::Dumper;
-use Scalar::Util qw(looks_like_number);
+
+=cut
 use Exporter qw(import);
 
 our @EXPORT_OK = qw(
@@ -14,6 +15,19 @@ our @EXPORT_OK = qw(
   findMatchingBracket
   size
 );
+=cut
+
+
+sub requireInternal {
+  my $dir = shift;
+  my $pm = shift;
+
+  if ( $ENV{PWD} =~ /$dir$/ ) {
+    require "./$pm";
+  } else {
+    require "./$dir/$pm";
+  }
+}
 
 sub size {
   my $value = shift;

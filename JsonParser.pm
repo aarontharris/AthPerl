@@ -2,7 +2,16 @@
 
 package JsonParser;
 use strict;
-use ATH qw(startsWith endsWith contains ltrim rtrim trim);
+
+# use ATH::ATH;
+# I do this require so that I can run test scripts from within this dir
+# or use it like normal from othe parent dir.
+if ( $ENV{PWD} =~ /ATH$/ ) {
+  require "./ATH.pm";
+} else {
+  require "./ATH/ATH.pm";
+}
+
 use Data::Dumper;
 
 sub new {
@@ -26,10 +35,10 @@ sub fromJsonStringInternal {
   my ($this, $valueRef) = @_;
   my $out;
 
-  $$valueRef = &trim($$valueRef);
+  $$valueRef = &ATH::trim($$valueRef);
 
   # Hash
-  if ( &startsWith( $$valueRef, "{" ) ) {
+  if ( &ATH::startsWith( $$valueRef, "{" ) ) {
     my $value = $this->subStringBetweenBrackets($$valueRef, "{", "}");
     $$valueRef = substr( $$valueRef, length($value) + 2 ); # +2 for { and }
     do {
@@ -38,12 +47,12 @@ sub fromJsonStringInternal {
       $key = &ATH::subStringBetween($key, "\"", "\"");
       $value = substr($value, $pos + 1); # +1 to consume the :
       $out->{$key} = $this->fromJsonStringInternal(\$value);
-      $value = &trim($value);
-    } while ( &startsWith( $value, "," ) );
+      $value = &ATH::trim($value);
+    } while ( &ATH::startsWith( $value, "," ) );
   }
   
   # Array
-  elsif ( &startsWith( $$valueRef, '\[' ) ) {
+  elsif ( &ATH::startsWith( $$valueRef, '\[' ) ) {
     my $value = $this->subStringBetweenBrackets($$valueRef, '[', ']');
     $$valueRef = substr( $$valueRef, length($value) + 2 ); # +2 for [ and ]
     my $idx = 0;
@@ -52,9 +61,9 @@ sub fromJsonStringInternal {
         $value = substr( $value, 1 ); # remove ,
       }
       $out->[$idx] = $this->fromJsonStringInternal(\$value);
-      $value = &trim($value);
+      $value = &ATH::trim($value);
       $idx += 1;
-    } while ( &startsWith( $value, "," ) );
+    } while ( &ATH::startsWith( $value, "," ) );
     
   }
   
@@ -63,7 +72,7 @@ sub fromJsonStringInternal {
     my $type = 'unknown';
 
     # String
-    if ( &startsWith( $$valueRef, "\"" ) ) {
+    if ( &ATH::startsWith( $$valueRef, "\"" ) ) {
       $type ="String";
       $out = &ATH::subStringBetween($$valueRef, "\"", "\"");
       my $preceeding = index( $$valueRef, "\"" ); # should be zero but just in case
@@ -81,7 +90,7 @@ sub fromJsonStringInternal {
     # Boolean
     elsif ( $$valueRef =~ /^true|false/ ) {
       $type ="Boolean";
-      if ( &startsWith( $$valueRef, "true" ) ) {
+      if ( &ATH::startsWith( $$valueRef, "true" ) ) {
         $out = "true";
       } else {
         $out = "false";
