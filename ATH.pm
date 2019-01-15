@@ -5,6 +5,10 @@ package ATH;
 use strict;
 use Data::Dumper;
 
+our $EXECONLY = 0;
+our $PRINTONLY = 1;
+our $EXECPRINT = 2;
+
 =cut
 use Exporter qw(import);
 
@@ -156,5 +160,83 @@ sub contains {
 sub ltrim { my $s = shift; $s =~ s/^\s+//;       return $s };
 sub rtrim { my $s = shift; $s =~ s/\s+$//;       return $s };
 sub  trim { my $s = shift; $s =~ s/^\s+|\s+$//g; return $s };
+
+# Contents of A and B will merge and return as C
+# @param a     - hashref
+# @param b     - hashref
+# @param flags ? hashref
+#         - 'col' # Key Collision Handling
+#                 => string - undef = A overwrite B
+#                 => string - <token> = A new key will be created as "<token><originalKey>"
+#         - 'out' # Output Hash
+#                 => hashref - undef = A new hashref will be created and returned.
+#                 => hashref - Contents will be placed into the provided hashref and returned.
+# @return a new hash 
+sub mergeHash {
+    my $src = shift || {};
+    my $dst = shift || {};
+    my $flags = shift || {};
+
+    my $col = $flags->{col} || undef;
+    my $out = $flags->{out} || {};
+
+    if ( $out != $dst ) {
+        foreach my $key ( keys %$dst ) { $out->{$key} = $dst->{$key}; }
+    }
+
+    foreach my $key ( keys %$src ) { 
+        if ( defined $col && defined $out->{$key} ) {
+            $out->{$col.$key} = $src->{$key};
+        } else {
+            $out->{$key} = $src->{$key};
+        }
+    }
+
+    return $out;
+}
+
+# @param cmd   - string - command to execute
+# @param flags ? hashref
+#         - 'debug'  - int
+#                   => $ATH::EXECONLY  = EXECUTE ONLY (default)
+#                   => $ATH::PRINTONLY = PRINT ONLY
+#                   => $ATH::EXECPRINT = EXECUTE AND PRINT
+#         - 'mock'   - string - when defined, this value is always returned
+#         - 'stderr' - 1 = include stderr in the returned output
+# @return chomp(output) of the command.
+sub execute {
+    my $cmd = shift;
+    my $flags = &mergeHash( shift || {}, {
+        debug => 0,
+        mock => undef,
+        stderr => 0, # capture stderr as well?
+    } );
+
+    if ( $flags->{stderr} ) {
+        $cmd .= " 2>&1";
+    }
+
+    my $debug = $flags->{debug};
+    
+    if ( $debug == $ATH::PRINTONLY ) {
+        print "DEBUG: CMD='$cmd'\n";
+        exit();
+    } 
+
+    my $out = `$cmd`;
+    chomp($out);
+
+    if ( defined $flags->{mock} ) {
+        $out = $flags->{mock};
+    }
+
+    if ( $debug == $ATH::EXECPRINT ) {
+        print "DEBUG: CMD='$cmd'\n";
+        print "     : OUT='$out'\n";
+    }
+
+    return $out;
+}
+
 
 1;
