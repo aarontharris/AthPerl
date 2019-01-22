@@ -22,12 +22,18 @@ sub new {
     return $self;
 }
 
+sub out {
+    my $self = shift;
+    my $msg = shift;
+    my $args = @_;
+    print $msg;
+}
+
 sub d {
     my $self = shift;
     my $msg = shift;
     my $args = @_;
     return if ( $self->{loglevel} > $LOG_LEVEL_DEBUG );
-    print $msg . "\n";
     print $self->white("D: " . $msg);
 }
 

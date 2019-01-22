@@ -1,5 +1,11 @@
 #!/usr/bin/perl
 
+#############################################
+# # How to include from another directory
+# BEGIN { push @INC, "$ENV{DEV_BIN}/ATH"; }
+# use ATH;
+#############################################
+
 package ATH;
 
 use strict;
