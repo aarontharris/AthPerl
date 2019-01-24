@@ -9,6 +9,7 @@
 package ATH;
 
 use strict;
+use File::Copy;
 use Data::Dumper;
 
 our $EXECONLY = 0;
@@ -244,5 +245,52 @@ sub execute {
     return $out;
 }
 
+sub slurp {
+  my $file = shift;
+  open FH, '<', $file or return undef;
+  my $lineTerminator = $/;
+  $/ = undef;
+  my $data = <FH>;
+  close FH;
+  $/ = $lineTerminator;
+  return $data;
+}
+
+sub readFromDumpFile {
+  my $file = shift;
+  my $default = shift;
+  my $data = &slurp($file);
+  my $result = $default;
+  return $result if ( length($data) == 0 );
+  {
+    my $VAR1;
+    eval $data;
+    $result = $VAR1;
+  }
+  return $result;
+}
+
+sub writeToDumpFile {
+  my $file = shift;
+  my $data = shift;
+  my $back = shift;
+
+  if ( defined $back && -e $file ) {
+    my $bakFile = $file . $back;
+    copy($file, $bakFile);
+  }
+
+  open FH, '>', $file or die "File '$file' not found or invalid permission\n";
+  print FH Dumper($data);
+  close FH;
+}
+
+sub getStringMMDDYYYY {
+  my($day, $month, $year) = (localtime)[3,4,5];
+  #$month = sprintf '%02d', $month+1;
+  #$day   = sprintf '%02d', $day;
+  #$year += 1900;
+  return sprintf( '%02d%02d%04d', $month+1, $day, $year+1900);
+}
 
 1;

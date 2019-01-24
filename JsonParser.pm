@@ -1,18 +1,19 @@
 #!/usr/bin/perl
 
 package JsonParser;
-use strict;
 
-# use ATH::ATH;
-# I do this require so that I can run test scripts from within this dir
-# or use it like normal from othe parent dir.
-if ( $ENV{PWD} =~ /ATH$/ ) {
-  require "./ATH.pm";
-} else {
-  require "./ATH/ATH.pm";
-}
+die "ENV{DEV_BIN} not defined!" unless defined $ENV{DEV_BIN};
+BEGIN { push @INC, "$ENV{DEV_BIN}/ATH"; }
 
 use Data::Dumper;
+use ATH;
+use GitUtil;
+use Logger;
+use Exec;
+use strict;
+
+my $DEBUG = 0;
+my $log = Logger->new({loglevel=>$Logger::LOG_LEVEL_DEBUG});
 
 sub new {
   my $class = shift;
@@ -20,6 +21,28 @@ sub new {
   };
   bless $this, $class;
   return $this;
+}
+
+sub readFromFile {
+  my $this = shift;
+  my $file = shift; # || "~/.athstates"
+  open FH, '<', $file or return undef;
+
+  my $line = <FH>;
+  chomp($line);
+  my $data = $this->fromJsonString($line);
+  return $data;
+}
+
+sub writeToFile {
+  my $this = shift;
+  my $file = shift; # || "~/.athstates"
+  my $data = shift;
+
+  my $jsonStr = $this->toJsonString($data);
+  open FH, '>', $file or die "File '$file' not found or invalid permission\n";
+  print FH $jsonStr;
+  close FH;
 }
 
 sub fromJsonString {

@@ -27,12 +27,20 @@ sub getGitStatus {
         my $line = substr($line, 3);
         $mode =~ s/^\ +//;
         $mode =~ s/\ +$//;
-        $log->d("'$mode'='$line'\n");
-
         push @{$out->{$mode}}, $line;
     }
 
     return $out;
+}
+
+# return 1 if has changes
+# return 0 if no changes
+sub hasUncommittedChanges {
+    my $changes = &getGitStatus();
+    my @keys = keys($changes);
+    my $numKeys = 1 + $#keys;
+    return 1 if ( $numKeys >= 1 );
+    return 0;
 }
 
 sub getCurrentBranch {
