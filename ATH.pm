@@ -6,6 +6,60 @@
 # use ATH;
 #############################################
 
+### PERL DOC STANDARDS:
+#
+## Data Types:
+#
+# - ANY - No type constraints
+# - HASH<K,V> - K & V are optional descriptors of what the KEY & VALUE type must be respectively
+# - HASHREF<K,V> - K & V are optional descriptors of what the KEY & VALUE type must be respectively
+# - ARRAY<T> - T is an optional descriptor of what the type must be
+# - ARRAYREF<T> - T is an optional descriptor of what the type must be
+# - SCALAR
+# - - NUMBER - Integers and Floats
+# - - - INT - Integers
+# - - - - BOOLEAN - 0=false, 1=true
+# - - STRING~ - When a SCALAR is not a NUMBER. '~' is optional and describes that there is a regex enforced format constraints
+# - - - REGEX - A Regex pattern. Not enforceable - only for documentational purposes
+# - - CHAR - A SCALAR but constrained to a single character. Not specifically a STRING or NUMBER
+#
+## METHOD DOCS
+#
+# PARAM EXAMPLES:
+#
+# @param <TYPE> <NAME>? - <DESC> # where '?' is optional and denotes nullable / optional value, lack of means nonnull / required
+#
+# // SCALAR Detailed / Complex
+# @param SCALAR <NAME>? - Expects
+#               - <OPTION>?
+#               - <OPTION>?
+#               - ...
+#
+# // SCALAR Compact / Simple
+# @param SCALAR <NAME>? - <DESC> 
+#
+# // HASHREF Detailed
+# @param HASHREF <NAME>? - Expects
+#                - <TYPE>? <KEY> => <TYPE>? <DESC> # <CONDITIONS>
+#                - <TYPE>? <KEY> => <TYPE>? <DESC> # <CONDITIONS>
+#                - HASHREF? <KEY> => Expects
+#                  - <TYPE>? <KEY> => <TYPE>? <DESC> # <CONDITIONS>
+#                  - ...
+#                - ...
+#
+# // HASHREF Compact - when self explanatory and simple
+# @param HASHREF <NAME>? - { 'akey'? => <TYPE>, 'bkey'? => <TYPE> }
+#
+# // return Detailed
+# @return <TYPE>
+#         - WHEN <CONDITION> THEN <DESC>
+#         - WHEN <CONDITION> THEN <DESC>
+#         - ELSE <DESC>
+#
+# // return Compact
+# @return <TYPE> - WHEN <CONDITION> THEN <DESC> ELSE <DEFAULT>
+#
+
 package ATH;
 
 use strict;
@@ -28,6 +82,87 @@ our @EXPORT_OK = qw(
 );
 =cut
 
+sub isArrayRef {
+  my $value = shift;
+  return 1 if ( ref $value eq "ARRAY" );
+  return 0;
+}
+
+sub isHashRef {
+  my $value = shift;
+  return 1 if ( ref $value eq "HASH" );
+  return 0;
+}
+
+# Note: Supertypes: STRING, NUMBER, INT, BOOLEAN
+sub isScalar {
+  my $value = shift;
+  return 1 if ( !&isArrayRef($value) && !&isHashRef($value) );
+  return 0; 
+}
+
+# Note: A STRING is also a SCALAR, so isScalar() will also be true
+sub isString {
+  my $value = shift;
+  return 0 unless ( &isScalar( $value ) );
+  return 0 if ( &isNumber( $value ) );
+  return 1;
+}
+
+# Note: Supertypes: INT, BOOLEAN
+# Note: A NUMBER is also a SCALAR, so isScalar() will also be true
+sub isNumber {
+  my $value = shift;
+  return 0 unless ( &isScalar( $value ) );
+  return 0 unless ( $value =~ m/^\d+\.?\d*$/ );
+  return 1;
+}
+
+# Note: Supertypes: BOOLEAN
+# Note: An Int is also a NUMBER, so isNumber() will also be true
+sub isInt {
+  my $value = shift;
+  return 0 unless ( &isNumber( $value ) );
+  return 0 unless ( $value =~ /^\d+$/ );
+  return 1;
+}
+
+# Note: A Boolean is also an INT, so isInt() will also be true
+sub isBoolean {
+}
+
+# numBetweenii - Number Between Inclusive Inclusive
+# @param INT val - Required
+# @param INT min - Required inclusive 
+# @param INT max - Required inclusive
+# @return BOOLEAN
+#         - WHEN val is >= min && <= max THEN 1
+#         - ELSE 0
+sub numBetweenii {
+  my $val = shift;
+  my $min = shift; # inclusive
+  my $max = shift; # inclusive
+  return $val >= $min && $val <= $max;
+}
+
+# get environment variable with default or fail options
+# @param ANY key - Required
+# @param ANY default - Optional, if undef, then die if not present
+# @return WHEN key is present THEN $ENV{$key}
+#         ELSE default if present else die.
+sub getEnv {
+  my $key = shift;
+  my $default = shift;
+  my $result = undef;
+  if ( defined $ENV{$key} ) {
+    $result = $ENV{$key};
+  } elsif ( defined $default ) {
+    $result = $default;
+  } else {
+    die "Environment Variable '$key' is not defined";
+  }
+  return $result;
+}
 
 sub requireInternal {
   my $dir = shift;
@@ -40,15 +175,24 @@ sub requireInternal {
   }
 }
 
+# When HASHREF, size = # of keys
+# When ARRAYREF, size = # of elements
+# When SCALAR, size = # of characters in number of string
 sub size {
   my $value = shift;
   my $out = 0;
-  if ( ref $value eq "HASH" ) {
+  
+  #if ( ref $value eq "HASH" ) {
+  if ( &isHashRef( $value ) ) {
     my @keys = keys %$value;
     $out = $#keys + 1;
   }
-  elsif ( ref $value eq "ARRAY" ) {
-    $out = $#{$value} + 1;
+  elsif ( &isArrayRef( $value ) ) {
+    # $out = $#{$value} + 1;
+    $out = scalar @$value;
+  }
+  elsif ( &isScalar( $value ) ) {
+    $out = length( $value );
   }
   else {
     $out = 0;
@@ -202,44 +346,74 @@ sub mergeHash {
     return $out;
 }
 
-# @param cmd   - string - command to execute
-# @param flags ? hashref
-#         - 'debug'  - int
-#                   => $ATH::EXECONLY  = EXECUTE ONLY (default)
-#                   => $ATH::PRINTONLY = PRINT ONLY
-#                   => $ATH::EXECPRINT = EXECUTE AND PRINT
-#         - 'mock'   - string - when defined, this value is always returned
-#         - 'stderr' - 1 = include stderr in the returned output
+# @param ARRAYREF<STRING> values - values to be joined
+# @param STRING? delimiter - used to separate the joined values
+# @return STRING - <elem0><delimiter><elem1><delimiter>...
+sub strJoin {
+  my $values = shift;
+  my $delimiter = shift || ',';
+  my $joined = "";
+  foreach my $value ( @$values ) {
+    $joined = $joined . $value . $delimiter;
+  }
+  return substr($joined, 0, (0 - length($delimiter)));
+}
+
+# @param STRING cmd - command to execute
+# @param HASHREF? flags - 
+#         - BOOLEAN? 'stderr'   - include stderr in the returned output
+#         - BOOLEAN? 'verbose'  - EXECUTE AND PRINT - non debug
+#         - STRING?  'mock'     - when defined, this value is always returned - cmd is not executed
+#         - STRING?  'mockexec' - when defined, this value is always returned - cmd is executed
 # @return chomp(output) of the command.
 sub execute {
-    my $cmd = shift;
-    my $flags = &mergeHash( shift || {}, {
-        debug => 0,
-        mock => undef,
-        stderr => 0, # capture stderr as well?
-    } );
+  my $cmd = shift;
+  my $flags = &mergeHash( shift || {}, {
+    stderr   => 0,
+    verbose  => 0,
+    mock     => undef,
+    mockexec => undef,
+  } );
 
-    if ( $flags->{stderr} ) {
-        $cmd .= " 2>&1";
-    }
+  # Outdated Usages
+  die "ATH::execute API has changed" if ( defined $flags->{debug} );
 
-    my $debug = $flags->{debug};
+  if ( $flags->{stderr} ) {
+    $cmd .= " 2>&1";
+  }
+
+  my $debug = $flags->{debug};
+  my $exec = 1; $exec = 0 if ( $debug == $ATH::PRINTONLY || $flags->{mock} == 1 );
+  my $debugPrint = 0; $debugPrint = 1 if ( $debug == $ATH::PRINTONLY || $debug == $ATH::EXECPRINT );
+  my $verbose = $flags->{verbose};
+
+  if ( $debugPrint ) {
+    print "DEBUG: CMD='$cmd'\n";
+  }
+
+
+
+
+
     
-    if ( $debug == $ATH::PRINTONLY ) {
+    if ( $debug == $ATH::PRINTONLY || $debug == $ATH::EXECPRINT ) {
         print "DEBUG: CMD='$cmd'\n";
-        exit();
-    } 
+        exit() if ( $debug == $ATH::PRINTONLY );
+    } elsif ( $flags->{verbose} ) {
+        print "CMD='$cmd'\n";
+    }
 
     my $out = `$cmd`;
     chomp($out);
 
     if ( defined $flags->{mock} ) {
-        $out = $flags->{mock};
+      $out = $flags->{mock};
     }
 
     if ( $debug == $ATH::EXECPRINT ) {
-        print "DEBUG: CMD='$cmd'\n";
-        print "     : OUT='$out'\n";
+      print "     : OUT='$out'\n";
+    } elsif ( $flags->{verbose} ) {
+      print "OUT='$out'\n";
     }
 
     return $out;
