@@ -129,6 +129,17 @@ sub isInt {
 
 # Note: A Boolean is also an INT, so isInt() will also be true
 sub isBoolean {
+  die "ATH::isBoolean() is Unimplemented"
+}
+
+sub containsArray {
+  my $array = shift;
+  my $value = shift;
+
+  foreach my $i ( 0..(&size($array)-1) ) {
+    return 1 if ( $array->[$i] eq $value );
+  }
+  return 0;
 }
 
 # numBetweenii - Number Between Inclusive Inclusive
@@ -181,7 +192,7 @@ sub requireInternal {
 sub size {
   my $value = shift;
   my $out = 0;
-  
+
   #if ( ref $value eq "HASH" ) {
   if ( &isHashRef( $value ) ) {
     my @keys = keys %$value;
@@ -302,7 +313,7 @@ sub endsWith {
   return $string =~ /$pattern$/g;
 }
 
-sub contains {
+sub containsString {
   my $string = shift;
   my $pattern = shift;
   return $string =~ /$pattern/g;
