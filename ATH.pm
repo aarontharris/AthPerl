@@ -13,8 +13,10 @@
 # - ANY - No type constraints
 # - HASH<K,V> - K & V are optional descriptors of what the KEY & VALUE type must be respectively
 # - HASHREF<K,V> - K & V are optional descriptors of what the KEY & VALUE type must be respectively
+# - \HASH<K,V> - Alias "HASHREF<K,V>"
 # - ARRAY<T> - T is an optional descriptor of what the type must be
 # - ARRAYREF<T> - T is an optional descriptor of what the type must be
+# - \ARRAY<T> - Alias "ARRAYREF<T>"
 # - SCALAR
 # - - NUMBER - Integers and Floats
 # - - - INT - Integers
@@ -476,6 +478,56 @@ sub getStringMMDDYYYY {
   #$day   = sprintf '%02d', $day;
   #$year += 1900;
   return sprintf( '%02d%02d%04d', $month+1, $day, $year+1900);
+}
+
+sub arrayContainsString {
+    my $array = shift;
+    my $search = shift;
+
+    if ( ! defined $array ) {
+        return 0;
+    }
+    foreach my $item (@$array) {
+        if ( $item eq $search ) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+sub arraySize {
+    my $array = shift;
+    my $size = scalar @$array;
+    return $size;
+}
+
+#
+# EXAMPLE: &ATH::usageFail( "Kapow!", 0, sub{$self->usage()} );
+#
+# @param STRING msg # Message to be displayed
+# @param INT?   die # Default = 0
+#                   - 0: Meaningful error + usage + exit
+#                   - 1: Die w/ Meaningful error
+# @param \SUB? usagePtr # If provided, this method will be called to diplsay usage
+#
+sub usageFail {
+    my $msg = shift;
+    my $die = shift || 0;
+    my $usagePtr = shift;
+    if ( $die ) {
+        die $msg;
+    } else {
+        print $msg . "\n";
+        if ( defined $usagePtr ) {
+            &{$usagePtr}();
+        }
+        exit(1);
+    }
+}
+
+sub shortProgramName {
+    my @parts = split('/', $0);
+    return $parts[-1] . " "
 }
 
 1;

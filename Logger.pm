@@ -16,6 +16,7 @@ sub new {
     my $class = shift;
     my $self = &ATH::mergeHash( shift || {}, {
         loglevel => $LOG_LEVEL_DEBUG,
+        eol => "\n",
         color => $ANSI_COLOR_16
     });
     bless $self, $class;
@@ -34,7 +35,7 @@ sub d {
     my $msg = shift;
     my $args = @_;
     return if ( $self->{loglevel} > $LOG_LEVEL_DEBUG );
-    print $self->white("D: " . $msg);
+    print $self->white("D: " . $msg . $self->{eol});
 }
 
 sub i {
@@ -42,7 +43,7 @@ sub i {
     my $msg = shift;
     my $args = @_;
     return if ( $self->{loglevel} > $LOG_LEVEL_INFO );
-    print $self->green("I: " . $msg);
+    print $self->green("I: " . $msg . $self->{eol});
 }
 
 sub w {
@@ -50,7 +51,7 @@ sub w {
     my $msg = shift;
     my $args = @_;
     return if ( $self->{loglevel} > $LOG_LEVEL_WARN );
-    print $self->yellow("W: " . $msg);
+    print $self->yellow("W: " . $msg . $self->{eol});
 }
 
 sub e {
@@ -58,7 +59,7 @@ sub e {
     my $msg = shift;
     my $args = @_;
     return if ( $self->{loglevel} > $LOG_LEVEL_ERROR );
-    print $self->RED("E: " . $msg);
+    print $self->RED("E: " . $msg . $self->{eol});
 }
 
 sub black {
