@@ -31,10 +31,11 @@ use constant {
     CSV => "csv",
     INT => "int",
     FLOAT => "float",
+    DATE => "MM-DD-YYYY"
 };
 
 my $TYPES = [
-    STRING, BOOL, CSV, INT, FLOAT
+    STRING, BOOL, CSV, INT, FLOAT, DATE
 ];
 
 my $log = Logger->new({loglevel=>$Logger::LOG_LEVEL_DEBUG});
@@ -62,6 +63,8 @@ sub new {
 # - - Obtained via 'id' else 'long'
 # 
 # NonNamed Params must be defined before Named Params
+#
+# NonNamed Params that are REQUIRED must precede OPTIONAL NonNamed Params (duh)
 # 
 # EXAMPLE
 #    $params->add({ id=>'u1', type=>Params::STRING, req=>1, desc=>"Unnamed 1" });
@@ -93,12 +96,19 @@ sub add {
         type => $def->{type},
         req => $def->{req},
         desc => $def->{desc},
-        value => $def->{value}
+        value => $def->{value},
+        help => $def->{help}
     });
 
     if ( $self->{firstNamedParamIdx} == -1 && (defined $def->{long}) ) {
         $self->{firstNamedParamIdx} = &ATH::arraySize($self->{definitions}) - 1;
     }
+}
+
+sub addHelp {
+    my $self = shift;
+    my $long = shift;
+    $self->add({'long'=>$long, 'help'=>1, type=>BOOL, req=>0, desc=>'Help'});
 }
 
 #
@@ -117,12 +127,32 @@ sub build {
 
     my $params = {};
 
+    { # reorder help to the end of definitions
+        my $help = undef;
+        my $tmp = undef;
+        foreach my $def ( @{$self->{definitions}} ) {
+            if ( $def->{help} ) {
+                $help = $def;
+            } else {
+                push( @$tmp, $def );
+            }
+        }
+        if ( defined $help ) {
+            push( @$tmp, $help );
+        }
+        $self->{definitions} = $tmp;
+    }
+
     { # make sure all args map to a definitions
         my $pos = 0;
         my $nonNameAllowed = 1;
         foreach my $arg (@$argv) {
             my $def = $self->__findDef($arg, $pos, $nonNameAllowed);
             if ( defined $def ) {
+                if ( $def->{help} ) {
+                    $self->usage();
+                    exit(0);
+                }
                 if ( defined $def->{long} ) {
                     $nonNameAllowed = 0;
                 }
@@ -164,13 +194,36 @@ sub get {
     return $self->{lookup}->{$id}->{value};
 }
 
+sub getCsv {
+    my $self = shift;
+    my $id = shift; # OR 'long'
+    my @result = undef;
+    my $value = $self->get($id);
+    die "$id is not a " . CSV if ( CSV ne $self->getDef($id)->{type} );
+    if ( $value =~ /,/ ) {
+        @result = split(',', $value);
+    } else {
+        @result = ( $value );
+    }
+    return \@result;
+}
+
+sub getDate {
+    my $self = shift;
+    my $id = shift; # OR 'long'
+    my $value = $self->get($id);
+    die "$id is not a " . DATE if ( DATE ne $self->getDef($id)->{type} );
+    my @result = split('-', $value);
+    return \@result;
+}
+
 sub getDef {
     my $self = shift;
     my $id = shift; # OR 'long'
     return $self->{lookup}->{$id};
 }
 
-sub getHash {
+sub getAllHash {
     my $self = shift;
     my $out = {};
     foreach my $def ( @{$self->{definitions}} ) {
@@ -181,7 +234,7 @@ sub getHash {
 
 # Be careful, if you have unordered values such as --named values
 # this may not give you predictable results
-sub getArray {
+sub getAllArray {
     my $self = shift;
     my @out;
     foreach my $def ( @{$self->{definitions}} ) {
@@ -210,7 +263,35 @@ sub __parseValue {
         } elsif ( lc($value) eq "t" || lc($value) eq "true" ) {
             $value = 1;
         } else {
-            &ATH::usageFail("Unrecognized " . BOOL . " value: '$value'", 0, sub{$self->usage()} );
+            &ATH::usageFail("Unrecognized " . $def->{type} . " value: '$value'", 0, sub{$self->usage()} );
+        }
+    }
+
+    elsif ( INT eq $def->{type} ) {
+        if ( $value =~ /^[0-9]+$/ ) {
+            # NO OP
+        } else {
+            &ATH::usageFail("Unrecognized " . $def->{type} . " value: '$value'", 0, sub{$self->usage()} );
+        }
+    }
+
+    elsif ( FLOAT eq $def->{type} ) {
+        if ( $value =~ /^[0-9]+$/ || $value =~ /^[0-9]*\.[0-9]+$/ ) {
+            # NO OP
+        } else {
+            &ATH::usageFail("Unrecognized " . $def->{type} . " value: '$value'", 0, sub{$self->usage()} );
+        }
+    }
+
+    elsif ( CSV eq $def->{type} ) {
+        # NO OP - stored as string, parsed into array upon $params->getCsv()
+    }
+
+    elsif ( DATE eq $def->{type} ) {
+        if ( $value =~ /^\d{1,2}-\d{1,2}-\d{4}$/ ) {
+            # NO OP - stored as string, parsed into array upon $params->getDate()
+        } else {
+            &ATH::usageFail("Unrecognized " . $def->{type} . " value: '$value'", 0, sub{$self->usage()} );
         }
     }
 
@@ -230,7 +311,10 @@ sub usage {
         my $c = {};
 
         my $item = undef;
-        if ( defined $def->{long} ) {
+        if ( $def->{help} ) {
+            $item = $def->{long};
+            $c->{abbr} = $def->{long};
+        } elsif ( defined $def->{long} ) {
             my $name = $def->{long};
             my $type = $def->{type};
             $item = "--$name=<$type>";
@@ -262,6 +346,9 @@ sub usage {
 
     print "Usage: ";
     foreach my $def ( @{$self->{definitions}} ) {
+        if ( $def->{help} ) {
+            next;
+        }
         my $c = $comput->{$def->{id}};
         print $c->{abbr} . " ";
     }
@@ -273,8 +360,7 @@ sub usage {
         my $pad = " " x $padWidth;
         print "   " . $c->{item} . $pad . "   # " . $c->{req} . " # " . $c->{desc} . "\n";
         if ( defined $def->{short} ) {
-            #print "   --" . $def->{short} . "\n";
-            print "   --" . sprintf('%-'.$maxWidth.'s', $def->{short}) . " # alias of --". $def->{long} ."\n";
+            print "   --" . sprintf('%-'.$maxWidth.'s', $def->{short}) . " # ALIAS OF # --". $def->{long} ."\n";
         }
     }
 
@@ -351,6 +437,15 @@ sub __findByName {
         }
     }
     return undef;
+}
+
+sub printParams {
+    my $self = shift;
+    foreach my $def ( @{$self->{definitions}} ) {
+        if ( defined $def->{value} ) {
+            print "$def->{id}='$def->{value}'\n";
+        }
+    }
 }
 
 sub printDefinitions {
