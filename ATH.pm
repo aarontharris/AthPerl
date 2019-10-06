@@ -67,10 +67,13 @@ package ATH;
 use strict;
 use File::Copy;
 use Data::Dumper;
+use Logger;
 
 our $EXECONLY = 0;
 our $PRINTONLY = 1;
 our $EXECPRINT = 2;
+
+our $log = Logger->new({loglevel=>$Logger::LOG_LEVEL_DEBUG});
 
 =cut
 use Exporter qw(import);
@@ -517,7 +520,7 @@ sub usageFail {
     if ( $die ) {
         die $msg;
     } else {
-        print $msg . "\n";
+        $log->e($msg);
         if ( defined $usagePtr ) {
             &{$usagePtr}();
         }

@@ -12,7 +12,7 @@ package Params;
 #
 # scriptName.pl <NonNamedParam1> <NonNamedParam2> --<Name1>=<Value1> --<Name2>=<Value2>
 #
-# my $params = Params->new();
+# my $params = Params->new({desc=>"Description of Script goes here."});
 # $params->add({ id=>'diff', type=>Params::STRING, req=>1, desc=>"The diff number in Phabricator" });
 # $params->add({ id=>'branch', type=>Params::STRING, req=>0, desc=>"The branch to contain the pulled diff" });
 # $params->add({ long=>'namedValue1', short=>'n', type=>Params::STRING, req=>0, desc=>"A Sample Named Value" });
@@ -45,6 +45,7 @@ sub new {
     my $class = shift;
     my $self = &ATH::mergeHash( shift || {}, {
         # defaults go here
+        desc=>"",
         definitions => [],
         firstNamedParamIdx => -1
     });
@@ -174,7 +175,7 @@ sub build {
                 if ( defined $params->{$def->{id}} ) {
                     # great
                 } else {
-                    my $err = "Missing $def->{desc}";
+                    my $err = "Missing Field: $def->{desc}";
                     &ATH::usageFail($err, $die, sub{$self->usage()});
                 }
             }
@@ -342,6 +343,10 @@ sub usage {
         $comput->{$id} = $c;
 
         $idx += 1;
+    }
+
+    if ( $self->{desc} ne "" ) {
+        print "Description: " . $self->{desc} . "\n";
     }
 
     print "Usage: ";
