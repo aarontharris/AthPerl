@@ -13,6 +13,28 @@ our $MODE_ADDED = 'A';
 
 my $log = Logger->new({loglevel=>$Logger::LOG_LEVEL_DEBUG});
 
+#
+# return: { 
+#       <mode> => [ files... ],  # files for a given mode
+#       all => [ files... ],     # all files for all modes
+#       unadded => [ files... ], # all files that are not added
+#       added => [ files... ], # all files that are added
+#   }
+#
+# Modes: The two character code you get when you do a 'git status -s'
+# - |A | - Newly Added And Staged
+# - |??| - Untracked or Newly Added And Unstaged
+# - |M | - Modified and Staged
+# - | M| - Modified and Unstaged
+# - etc...
+# - |12|
+# - - - - 1: Is Added
+# - - - - 2: Is Not Added
+# - - - - M: Modified
+# - - - - A: Added
+# - - - - D: Deleted
+# - - - - ?: Untracked
+#
 sub getGitStatus {
     my $cmd = "git status -s";
     my $results = &ATH::execute($cmd, {stderr=>1});
@@ -25,12 +47,49 @@ sub getGitStatus {
         next if ( length($line) == 0 );
         my $mode = substr($line, 0, 2);
         my $line = substr($line, 3);
-        $mode =~ s/^\ +//;
-        $mode =~ s/\ +$//;
+        #$mode =~ s/^\ +//;
+        #$mode =~ s/\ +$//;
         push @{$out->{$mode}}, $line;
+        push @{$out->{'all'}}, $line;
+        if ( $mode =~ /.\S/ ) {
+            push @{$out->{'unadded'}}, $line;
+        }
+        if ( $mode =~ /[^? ]./ ) {
+            push @{$out->{'added'}}, $line;
+        }
     }
 
     return $out;
+}
+
+sub colorizeDiff {
+    my $diff = shift;
+    my $colorized = undef;
+
+    my @lines = split("\n", $diff);
+    foreach my $line ( @lines ) {
+        if ( $line =~ /^ / ) {
+            # no-op - these are not gitified
+        } elsif ( $line =~ /^diff --/ ) {
+            $line = $log->WHITE($line);
+        } elsif ( $line =~ /^index [a-z0-9]{10}\.\.[a-z0-9]{10} [0-9]+$/ ) {
+            $line = $log->WHITE($line);
+        } elsif ( $line =~ /^--- [ab]/ ) {
+            $line = $log->WHITE($line);
+        } elsif ( $line =~ /^\+\+\+ [ab]/ ) {
+            $line = $log->WHITE($line);
+        } elsif ( $line =~ /^(@@.*@@)(.*)$/ ) {
+            $line = $log->cyan($1) . $2;
+        } elsif ( $line =~ /^\+/ ) {
+            $line = $log->green($line);
+        } elsif ( $line =~ /^-/ ) {
+            $line = $log->red($line);
+        }
+        $colorized .= $line . "\n";
+    }
+
+    return $colorized;
+
 }
 
 # return 1 if has changes

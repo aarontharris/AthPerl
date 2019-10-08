@@ -25,17 +25,22 @@ use ATH;
 use Logger;
 use Data::Dumper;
 
-use constant {
+use constant { # values are the usage description & must be unique :/ I should fix that
     STRING => "string",
     BOOL => "bool",
     CSV => "csv",
     INT => "int",
     FLOAT => "float",
-    DATE => "MM-DD-YYYY"
+    DATE => "MM-DD-YYYY",
+    FILE => "filename", # File may or may not exist
+    FILE_EXISTS => "existing filename", # File must exist
+    DIR => "folder", # folder may or may not exist
+    DIR_EXISTS => "existing folder", # folder must exist
+    # NOTE: New Entries: Add to $TYPES=[] & sub __parseValue.
 };
 
 my $TYPES = [
-    STRING, BOOL, CSV, INT, FLOAT, DATE
+    STRING, BOOL, CSV, INT, FLOAT, DATE, FILE, FILE_EXISTS, DIR, DIR_EXISTS,
 ];
 
 my $log = Logger->new({loglevel=>$Logger::LOG_LEVEL_DEBUG});
@@ -264,7 +269,7 @@ sub __parseValue {
         } elsif ( lc($value) eq "t" || lc($value) eq "true" ) {
             $value = 1;
         } else {
-            &ATH::usageFail("Unrecognized " . $def->{type} . " value: '$value'", 0, sub{$self->usage()} );
+            &ATH::usageFail("Unrecognized <" . $def->{type} . "> value: '$value'", 0, sub{$self->usage()} );
         }
     }
 
@@ -272,7 +277,7 @@ sub __parseValue {
         if ( $value =~ /^[0-9]+$/ ) {
             # NO OP
         } else {
-            &ATH::usageFail("Unrecognized " . $def->{type} . " value: '$value'", 0, sub{$self->usage()} );
+            &ATH::usageFail("Unrecognized <" . $def->{type} . "> value: '$value'", 0, sub{$self->usage()} );
         }
     }
 
@@ -280,7 +285,7 @@ sub __parseValue {
         if ( $value =~ /^[0-9]+$/ || $value =~ /^[0-9]*\.[0-9]+$/ ) {
             # NO OP
         } else {
-            &ATH::usageFail("Unrecognized " . $def->{type} . " value: '$value'", 0, sub{$self->usage()} );
+            &ATH::usageFail("Unrecognized <" . $def->{type} . "> value: '$value'", 0, sub{$self->usage()} );
         }
     }
 
@@ -292,7 +297,31 @@ sub __parseValue {
         if ( $value =~ /^\d{1,2}-\d{1,2}-\d{4}$/ ) {
             # NO OP - stored as string, parsed into array upon $params->getDate()
         } else {
-            &ATH::usageFail("Unrecognized " . $def->{type} . " value: '$value'", 0, sub{$self->usage()} );
+            &ATH::usageFail("Unrecognized <" . $def->{type} . "> value: '$value'", 0, sub{$self->usage()} );
+        }
+    }
+
+    elsif ( FILE eq $def->{type} ) {
+        # NO OP
+    }
+
+    elsif ( FILE_EXISTS eq $def->{type} ) {
+        if ( -f $value ) {
+            # NO OP
+        } else {
+            &ATH::usageFail("File not found <" . $def->{type} . "> value: '$value'", 0, sub{$self->usage()} );
+        }
+    }
+
+    elsif ( DIR eq $def->{type} ) {
+        # NO OP
+    }
+
+    elsif ( DIR_EXISTS eq $def->{type} ) {
+        if ( -f $value ) {
+            # NO OP
+        } else {
+            &ATH::usageFail("Path not found <" . $def->{type} . "> value: '$value'", 0, sub{$self->usage()} );
         }
     }
 
