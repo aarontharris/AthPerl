@@ -116,7 +116,7 @@ sub getCurrentBranch {
 
 # @return ARRAYREF of branch names, current branch at index 0
 sub getBranches {
-    my $result = &ex("git branch");
+    my $result = &ATH::execute("git branch", {stderr=>1});
     my $currentBranch = &GitUtil::getCurrentBranch();
 
     my @lines = split( /(\r\n|\r|\n)/, $result );
