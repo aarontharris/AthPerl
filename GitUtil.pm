@@ -7,10 +7,6 @@ use ATH;
 use Logger;
 use Data::Dumper;
 
-our $MODE_MODIFIED = 'M';
-our $MODE_UNTRACKED = '??';
-our $MODE_ADDED = 'A';
-
 my $log = Logger->new({loglevel=>$Logger::LOG_LEVEL_DEBUG});
 
 #
@@ -62,6 +58,33 @@ sub getGitStatus {
     return $out;
 }
 
+sub colorizeStatus {
+    my $input = shift; # git status
+    my $colorized = undef;
+
+    my $MODE_ADDED = 1;
+    my $MODE_UNSTAGED = 2;
+    my $MODE_UNTRACKED = 3;
+
+    my $mode = undef;
+
+    my @lines = split("\n", $input);
+    foreach my $line ( @lines ) {
+        $mode = $MODE_ADDED if ( $line =~ /^Changes to be committed:/ );
+        $mode = $MODE_UNSTAGED if ( $line =~ /^Changes not staged for commit:/ );
+        $mode = $MODE_UNTRACKED if ( $line =~ /^Untracked files:/ );
+
+        if ( $line =~ /^(\tmodified:\s+[^(]+)(.*)/ ) {
+            $line = (( $MODE_ADDED == $mode ) ? $log->green($1) : $log->red($1)) . $2;
+        } elsif ( $line =~ /^\t/ ) {
+            $line = (( $MODE_ADDED == $mode ) ? $log->green($line) : $log->red($line));
+        }
+        $colorized .= $line . "\n";
+    }
+
+    return $colorized;
+}
+
 sub colorizeDiff {
     my $diff = shift;
     my $colorized = undef;
@@ -89,14 +112,13 @@ sub colorizeDiff {
     }
 
     return $colorized;
-
 }
 
 # return 1 if has changes
 # return 0 if no changes
 sub hasUncommittedChanges {
     my $changes = &getGitStatus();
-    my @keys = keys($changes);
+    my @keys = keys(%$changes);
     my $numKeys = 1 + $#keys;
     return 1 if ( $numKeys >= 1 );
     return 0;
