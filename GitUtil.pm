@@ -13,6 +13,61 @@ our $MODE_ADDED = 'A';
 
 my $log = Logger->new({loglevel=>$Logger::LOG_LEVEL_DEBUG});
 
+# Return an ordered list of {hash, msg} since master -- NOT including master by default
+# Ordered such that master is last, and most recent commit is first (you know, like a stack).
+# PARAM includeMaster BOOL - defaults to true
+sub getStackCommits {
+  my $includeMaster = shift || 0;
+  my $master = &getHashOfBranch("master") || die "cannot find master";
+  my $pageSize = 10;
+  my $foundMaster = 0;
+
+  print "master: '$master'\n";
+
+  my $try = 1;
+  my @output = undef;
+  while ($try <= 4 && !$foundMaster) {
+    @output = ();
+    my $count = $try * $pageSize;
+    my $cmd = "git log --oneline -n$count";
+    my $result = &ATH::execute($cmd, {stderr=>1});
+    my @lines = split("\n", $result);
+    my $isMaster = 0;
+    foreach my $line ( @lines ) {
+      my $lineHash = substr($line, 0, 10);
+      $isMaster = 1 if ( $lineHash eq $master );
+
+      if ( $line =~ /^([a-z0-9]{10}) (.*)/ && (!$isMaster || $includeMaster) ) {
+        my $hash = $1;
+        my $msg = $2;
+        push @output, {hash=>$hash, msg=>$msg, master=>$isMaster};
+      }
+
+      if ( $isMaster ) {
+        $foundMaster = 1;
+        last;
+      }
+    }
+    $try++;
+  }
+
+  if ( !$foundMaster ) {
+    return [];
+  }
+  return \@output;
+}
+
+# Get the 10 char hash of the given branch or undef
+sub getHashOfBranch {
+  my $branch = shift || die "Missing branch";
+  my $cmd = "git show --oneline --name-only $branch";
+  my $result = &ATH::execute($cmd, {stderr=>1});
+  if ( $result =~ /^([a-z0-9]{10})/ ) {
+    return $1;
+  }
+  return undef;
+}
+
 #
 # return: { 
 #       <mode> => [ files... ],  # files for a given mode
